@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    http://tampermonkey.net/
-// @version      2025-04-17.1
+// @version      2025-04-17.2
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183]
 // @match        https://www.torn.com/item.php
