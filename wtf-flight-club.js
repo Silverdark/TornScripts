@@ -5,8 +5,7 @@
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183]
 // @match        https://www.torn.com/item.php
-// @grant        GM_xmlhttpRequest
-// @connect      travel.torn.wtf
+// @grant        none
 // ==/UserScript==
 
 (function() {
