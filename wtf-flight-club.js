@@ -1,19 +1,15 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    http://tampermonkey.net/
-// @version      2025-04-25.4
+// @version      2025-04-26.1
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183]
 // @match        https://www.torn.com/item.php
-// @grant        GM_addStyle
+// @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
-
-    const enableDetailsButton = false;
-    const enableSendButton = true;
-    const enableItemRowHightlight = false;
 
     const allowedItemIds = [
         // Flowers
@@ -45,76 +41,30 @@
         "261", // Wolverine
     ];
 
-    // Flight Club Item Row handling
-    GM_addStyle(`
-        .flight-club-item-row {
-            background-color: var(--default-bg-blue-color) !important;
-        }
-
-        .flight-club-item-row:hover {
-            background-color: var(--default-bg-blue-hover-color) !important;
-        }
-    `);
-
     onFlightClubItemRowChanged(itemRow => {
-        if (enableItemRowHightlight) {
-            setClassOnNode(itemRow, "flight-club-item-row");
-        }
+        const actionsWrap = itemRow.querySelector(".actions-wrap");
+        const fcSendContainer = actionsWrap.children[2];
+        const fcOriginalSendButton = actionsWrap.children[1];
 
-        if (enableSendButton) {
-            const actionsWrap = itemRow.querySelector(".actions-wrap");
-            const fcSendContainer = actionsWrap.children[2];
-            const fcOriginalSendButton = actionsWrap.children[1];
+        // Use the "sell" class as indicator if there is already a send button
+        if (fcSendContainer.classList.contains("sell")) return;
+        fcSendContainer.classList.add("sell");
 
-            // Use the "sell" class as indicator if there is already a send button
-            if (fcSendContainer.classList.contains("sell")) return;
-            fcSendContainer.classList.add("sell");
+        const fcButton = createFlightClubSendButton();
+        fcButton.addEventListener("click", function (btnEvt) {
+            btnEvt.stopPropagation();
+            fcOriginalSendButton.click();
 
-            const fcButton = createFlightClubSendButton();
-            fcButton.addEventListener("click", function (btnEvt) {
-                btnEvt.stopPropagation();
-                fcOriginalSendButton.click();
+            const actionsNode = btnEvt.target.closest(".cont-wrap");
+            if (!actionsNode) return;
 
-                const actionsNode = btnEvt.target.closest(".cont-wrap");
-                if (!actionsNode) return;
-
-                waitForElm(actionsNode, ".user-id-label").then(() => {
-                    updateSendDetailsToTargetFlightClub(actionsNode);
-                });
-            });
-
-            fcSendContainer.appendChild(fcButton);
-        }
-    });
-
-    // Flight Club Button handling on details
-    document.addEventListener("click", function (evt) {
-        if (!enableDetailsButton) return;
-
-        const actionsNode = evt.target.closest(".cont-wrap");
-        if (!actionsNode) return;
-
-        const parentNode = actionsNode.parentNode;
-        if (!parentNode) return;
-
-        const itemCategory = parentNode.dataset.category;
-        if (itemCategory !== "Plushie" && itemCategory !== "Flower") return;
-
-        const itemId = parentNode.dataset.item;
-        if (!allowedItemIds.includes(itemId)) return;
-
-        waitForElm(actionsNode, ".btn-wrap").then(btnWrapNode => {
-            // Don't do anything when the flight club button is already available.
-            if (btnWrapNode.querySelector('[data-flightclub="true"]')) return;
-
-            const flightClubBtn = createFlightClubButton();
-            flightClubBtn.addEventListener("click", function (btnEvt) {
+            waitForElm(actionsNode, ".user-id-label").then(() => {
                 updateSendDetailsToTargetFlightClub(actionsNode);
             });
-
-            btnWrapNode.prepend(flightClubBtn);
         });
-    }, false);
+
+        fcSendContainer.appendChild(fcButton);
+    });
 
     // Helper functions
 
@@ -133,19 +83,6 @@
         fcSpan.appendChild(fcButton);
         fcSpan.appendChild(optSpan);
         return fcSpan;
-    }
-
-    function createFlightClubButton() {
-        const flightClubInnerBtn = document.createElement("div");
-        flightClubInnerBtn.className = "torn-btn";
-        flightClubInnerBtn.textContent = "Flight Club";
-
-        const flightClubBtn = document.createElement("div");
-        flightClubBtn.dataset.flightclub = "true";
-        flightClubBtn.className = "btn";
-
-        flightClubBtn.appendChild(flightClubInnerBtn);
-        return flightClubBtn;
     }
 
     function updateSendDetailsToTargetFlightClub(node) {
@@ -179,11 +116,6 @@
     }
 
     // Utilities
-
-    function setClassOnNode(node, className) {
-        if (node.classList.contains(className)) return;
-        node.classList.add(className);
-    }
 
     // Source: https://stackoverflow.com/a/61511955
     function waitForElm(parent, selector) {
