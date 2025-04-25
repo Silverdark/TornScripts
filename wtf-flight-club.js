@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    http://tampermonkey.net/
-// @version      2025-04-25.3
+// @version      2025-04-25.4
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183]
 // @match        https://www.torn.com/item.php
@@ -127,7 +127,7 @@
         fcButton.className = "option-sell wai-btn";
 
         const optSpan = document.createElement("span");
-        optSpan.class = "opt-name";
+        optSpan.className = "opt-name";
         optSpan.textContent = "Flight";
 
         fcSpan.appendChild(fcButton);
