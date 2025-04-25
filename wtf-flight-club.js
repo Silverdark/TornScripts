@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    http://tampermonkey.net/
-// @version      2025-04-25.1
+// @version      2025-04-25.2
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183]
 // @match        https://www.torn.com/item.php
@@ -11,8 +11,9 @@
 (function() {
     'use strict';
 
-    const enableButton = true;
-    const enableItemRowHightlight = true;
+    const enableDetailsButton = false;
+    const enableSendButton = true;
+    const enableItemRowHightlight = false;
 
     const allowedItemIds = [
         // Flowers
@@ -44,6 +45,7 @@
         "261", // Wolverine
     ];
 
+    // Flight Club Item Row handling
     GM_addStyle(`
         .flight-club-item-row {
             background-color: var(--default-bg-blue-color) !important;
@@ -54,31 +56,40 @@
         }
     `);
 
-    waitForElm(document.body, "#category-wrap").then(categoryWrapper => {
-        if (!enableItemRowHightlight) return;
+    onFlightClubItemRowChanged(itemRow => {
+        if (enableItemRowHightlight) {
+            setClassOnNode(itemRow, "flight-club-item-row");
+        }
 
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                const mutationTarget = mutation.target;
+        if (enableSendButton) {
+            const actionsWrap = itemRow.querySelector(".actions-wrap");
+            const fcSendContainer = actionsWrap.children[2];
+            const fcOriginalSendButton = actionsWrap.children[1];
 
-                const itemId = mutationTarget.dataset.item;
-                if (!itemId || !allowedItemIds.includes(itemId)) continue;
+            // Use the "sell" class as indicator if there is already a send button
+            if (fcSendContainer.classList.contains("sell")) return;
+            fcSendContainer.classList.add("sell");
 
-                if (!mutationTarget.classList.contains("flight-club-item-row")) {
-                    mutationTarget.classList.add("flight-club-item-row");
-                }
-            }
-        });
+            const fcButton = createFlightClubSendButton();
+            fcButton.addEventListener("click", function (btnEvt) {
+                btnEvt.stopPropagation();
+                fcOriginalSendButton.click();
 
-        observer.observe(categoryWrapper, {
-            subtree: true,
-            attributes: true
-        });
+                const actionsNode = btnEvt.target.closest(".cont-wrap");
+                if (!actionsNode) return;
+
+                waitForElm(actionsNode, ".user-id-label").then(() => {
+                    updateSendDetailsToTargetFlightClub(actionsNode);
+                });
+            });
+
+            fcSendContainer.appendChild(fcButton);
+        }
     });
 
-    // Flight Club Button handling
+    // Flight Club Button handling on details
     document.addEventListener("click", function (evt) {
-        if (!enableButton) return;
+        if (!enableDetailsButton) return;
 
         const actionsNode = evt.target.closest(".cont-wrap");
         if (!actionsNode) return;
@@ -98,20 +109,26 @@
 
             const flightClubBtn = createFlightClubButton();
             flightClubBtn.addEventListener("click", function (btnEvt) {
-                const hiddenAmountTextInput = actionsNode.querySelector("input[type=hidden].amount");
-                const amountTextInput = actionsNode.querySelector("input[type=text].amount");
-                hiddenAmountTextInput.value = amountTextInput.dataset.max;
-                amountTextInput.value = amountTextInput.dataset.max;
-
-                const receiverTextInput = actionsNode.querySelector("input[type=text].user-id");
-                receiverTextInput.value = "Hecle [3099100]";
+                updateSendDetailsToTargetFlightClub(actionsNode);
             });
 
             btnWrapNode.prepend(flightClubBtn);
         });
     }, false);
 
-    // Utilities
+    // Helper functions
+
+    function createFlightClubSendButton() {
+        const fcSpan = document.createElement("span");
+        fcSpan.className = "icon-h";
+        fcSpan.title = "Send to Flight Club";
+
+        const fcButton = document.createElement("button");
+        fcButton.className = "option-sell wai-btn";
+
+        fcSpan.appendChild(fcButton);
+        return fcSpan;
+    }
 
     function createFlightClubButton() {
         const flightClubInnerBtn = document.createElement("div");
@@ -124,6 +141,43 @@
 
         flightClubBtn.appendChild(flightClubInnerBtn);
         return flightClubBtn;
+    }
+
+    function updateSendDetailsToTargetFlightClub(node) {
+        const hiddenAmountTextInput = node.querySelector("input[type=hidden].amount");
+        const amountTextInput = node.querySelector("input[type=text].amount");
+        hiddenAmountTextInput.value = amountTextInput.dataset.max;
+        amountTextInput.value = amountTextInput.dataset.max;
+
+        const receiverTextInput = node.querySelector("input[type=text].user-id");
+        receiverTextInput.value = "Hecle [3099100]";
+    }
+
+    function onFlightClubItemRowChanged(callback) {
+        waitForElm(document.body, "#category-wrap").then(categoryWrapper => {
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    const mutationTarget = mutation.target;
+
+                    const itemId = mutationTarget.dataset.item;
+                    if (!itemId || !allowedItemIds.includes(itemId)) continue;
+
+                    callback(mutationTarget);
+                }
+            });
+
+            observer.observe(categoryWrapper, {
+                subtree: true,
+                attributes: true
+            });
+        });
+    }
+
+    // Utilities
+
+    function setClassOnNode(node, className) {
+        if (node.classList.contains(className)) return;
+        node.classList.add(className);
     }
 
     // Source: https://stackoverflow.com/a/61511955
