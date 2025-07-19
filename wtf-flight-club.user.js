@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    https://github.com/Silverdark/TornScripts
-// @version      2025-05-06.1
+// @version      2025-07-19.1
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183], neth [3564828]
 // @icon         https://travel.wtf-torn.app/assets/img/wtf-flight.png
@@ -187,7 +187,7 @@
         amountTextInput.value = amountTextInput.dataset.max;
 
         const receiverTextInput = node.querySelector("input[type=text].user-id");
-        receiverTextInput.value = "Hecle [3099100]";
+        receiverTextInput.value = "LwG94 [2772102]";
     }
 
     // Flight Club Goal status
