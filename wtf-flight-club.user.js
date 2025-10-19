@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTF Flight Club
 // @namespace    https://github.com/Silverdark/TornScripts
-// @version      2025-07-19.1
+// @version      2025-10-19.1
 // @description  Flight Club Helper tools
 // @author       Silverdark [3503183], neth [3564828]
 // @icon         https://travel.wtf-torn.app/assets/img/wtf-flight.png
@@ -10,7 +10,6 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
-// @grant        GM_registerMenuCommand
 // @connect      travel.wtf-torn.app
 // ==/UserScript==
 
@@ -52,15 +51,12 @@
     const dataKey_publicApiKey = "publicApiKey";
     const event_FlightClubDataChanged = 'flight-club-data-changed';
     const event_FlightClubItemRowChanged = 'flight-club-itemrow-changed';
-    const event_PublicApiKeyChanged = 'public-api-key-changed';
 
-    const supportedFlightClubDataVersion = "1.0";
+    const supportedFlightClubDataVersion = "2.0";
     const flightClubCacheTimeInSeconds = 120;
 
     const listeners = {};
     const remainingByItemId = new Map();
-
-    let apiKey = await GM.getValue(dataKey_publicApiKey, "###PDA-APIKEY###");
 
     on(event_FlightClubItemRowChanged, itemRow => {
         const actionsWrap = itemRow.querySelector(".actions-wrap");
@@ -98,12 +94,6 @@
         }
     });
 
-    on(event_PublicApiKeyChanged, async () => {
-        remainingByItemId.clear();
-        await GM.deleteValue(dataKey_flightClub);
-        await initFlightClubData();
-    });
-
     init();
 
     // Helper functions
@@ -111,10 +101,6 @@
     function init() {
         initFlightClubData();
         initFlightClubItemRowChange();
-
-        GM_registerMenuCommand('Set API Key', () => {
-            createApiKeyInput();
-        });
     }
 
     async function initFlightClubItemRowChange() {
@@ -193,12 +179,6 @@
     // Flight Club Goal status
 
     async function initFlightClubData() {
-        // Disable, when no API key defined
-        if (!apiKey || apiKey.trim() === '' || apiKey.startsWith('###')) {
-            emit(event_FlightClubDataChanged);
-            return;
-        }
-
         // Read data from storage
         let data = await GM.getValue(dataKey_flightClub, null);
         if (data && data.version !== supportedFlightClubDataVersion) {
@@ -211,27 +191,27 @@
         if (!data || currentTimestamp > data.lastUpdate + flightClubCacheTimeInSeconds * 1000) {
             await GM.deleteValue(dataKey_flightClub);
 
-            const itemDataByItemName = await getCurrentItemDataByItemName();
+            const rawRemainingByItemId = await getRemainingItemsByTornItemId();
 
             data = {
                 version: supportedFlightClubDataVersion,
                 lastUpdate: currentTimestamp,
-                itemDataByItemName,
+                rawRemainingByItemId,
             };
 
             await GM.setValue(dataKey_flightClub, data);
         }
 
         // Transform raw data
-        for (const [itemId, itemData] of Object.entries(data.itemDataByItemName)) {
-            remainingByItemId.set(itemId, itemData.remaining);
+        for (const [key, value] of Object.entries(data.rawRemainingByItemId)) {
+            remainingByItemId.set(key, value);
         }
 
         emit(event_FlightClubDataChanged);
     }
 
-    async function getCurrentItemDataByItemName() {
-        const response = await gmFetch(`${travelWebsiteUrl}api/goals/current/items?apikey=${apiKey}`, 'GET');
+    async function getRemainingItemsByTornItemId() {
+        const response = await gmFetch(`${travelWebsiteUrl}api/items/remaining`, 'GET');
         return JSON.parse(response.responseText);
     }
 
@@ -250,7 +230,7 @@
         const nameWrap = itemRow.querySelector(".name-wrap");
         let statusTextNode = nameWrap.querySelector(".flight-club-status");
 
-        if (!remaining) {
+        if (remaining === null) {
             if (statusTextNode) {
                 statusTextNode.remove();
             }
@@ -264,54 +244,12 @@
             nameWrap.appendChild(statusTextNode);
         }
 
-        statusTextNode.innerHTML = `(${remaining})`;
-        statusTextNode.style.color = remaining < 0 ? "red" : "green";
-    }
-
-    // Set API key function
-
-    function createApiKeyInput() {
-        const headerRoot = document.getElementById('header-root');
-        if (!headerRoot) return;
-
-        const apiKeyInputForm = document.getElementById('apiKeyputId');
-        if (apiKeyInputForm) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.id = 'apiKeyputId';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '50px';
-        wrapper.style.display = 'flex';
-        wrapper.style.flexDirection = 'row';
-        wrapper.style.gap = '10px';
-        wrapper.style.justifyContent = 'center';
-        wrapper.style.alignItems = 'center';;
-        wrapper.style.padding = '4px';
-
-        const label = document.createElement('label');
-        label.innerText = 'Enter WTF Flight API Key';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = apiKey;
-        input.style.width = '140px';
-        input.style.padding = '4px';
-
-        const submit = document.createElement('button');
-        submit.classList.add('torn-btn');
-        submit.innerText = 'Submit';
-        submit.onclick = () => {
-            apiKey = input.value;
-            GM_setValue(dataKey_publicApiKey, apiKey);
-            wrapper.remove();
-
-            emit(event_PublicApiKeyChanged);
+        if (remaining === 0) {
+            remaining = "done";
         }
 
-        wrapper.appendChild(label);
-        wrapper.appendChild(input);
-        wrapper.appendChild(submit);
-        headerRoot.parentNode.insertBefore(wrapper, headerRoot);
+        statusTextNode.innerHTML = `(${remaining})`;
+        statusTextNode.style.color = remaining < 0 ? "red" : "green";
     }
 
     // Utilities
